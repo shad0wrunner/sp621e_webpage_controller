@@ -8,7 +8,6 @@
       name="description"
       content="A private Web Bluetooth controller for the BanlanX SP621E LED controller."
     />
-    <link rel="canonical" href="https://roomsun-sp621e-controller.awakeglobe8.chatgpt.site/" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="icon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="styles.css" />
@@ -37,7 +36,6 @@
         </div>
         <div class="hero-actions">
           <button id="connectButton" class="button primary">Connect lamp</button>
-          <button id="broadScanButton" class="button ghost">Broad scan</button>
           <button id="disconnectButton" class="button ghost" disabled>Disconnect</button>
         </div>
       </section>
@@ -107,25 +105,42 @@
       <section id="effectsPanel" class="control-panel panel hidden">
         <div class="panel-heading">
           <div>
-            <p class="section-label">Verified dynamic effects</p>
-            <h2>Stars</h2>
+            <p class="section-label">Dynamic effects</p>
+            <h2>Choose effect 1–142</h2>
           </div>
-          <span class="verified-badge">Live tested</span>
+          <span class="verified-badge">74 &amp; 75 verified</span>
         </div>
 
-        <label class="field">
-          <span>Effect</span>
-          <select id="effectSelect" disabled>
-            <option value="74">Red Stars · 74</option>
-            <option value="75" selected>Green Stars · 75</option>
-          </select>
+        <label class="field range-field">
+          <span>Effect number <output id="effectOutput" for="effectRange effectNumber">75</output></span>
+          <input id="effectRange" type="range" min="1" max="142" value="75" disabled />
         </label>
+
+        <div class="effect-selector" aria-label="Effect number controls">
+          <button id="previousEffectButton" class="step-button" disabled aria-label="Previous effect">−</button>
+          <input id="effectNumber" type="number" inputmode="numeric" min="1" max="142" value="75" disabled aria-label="Effect number" />
+          <button id="nextEffectButton" class="step-button" disabled aria-label="Next effect">+</button>
+        </div>
+        <button id="applyEffectButton" class="button primary full-width" disabled>Apply effect</button>
+
+        <div class="effect-presets" aria-label="Verified effect shortcuts">
+          <button class="effect-preset" data-effect="74" disabled>Red Stars <strong>74</strong></button>
+          <button class="effect-preset" data-effect="75" disabled>Green Stars <strong>75</strong></button>
+        </div>
 
         <label class="field range-field">
           <span>Speed <output id="speedOutput" for="speedInput">4</output></span>
           <input id="speedInput" type="range" min="1" max="10" value="4" disabled />
         </label>
-        <p class="hint">Effect length is intentionally omitted: BanlanX disabled it for the tested Stars effect.</p>
+
+        <div class="experimental-control">
+          <label class="field range-field">
+            <span>Effect length <output id="lengthOutput" for="effectLength">98</output></span>
+            <input id="effectLength" type="range" min="1" max="150" value="98" disabled />
+          </label>
+          <button id="applyLengthButton" class="button ghost full-width" disabled>Send effect length</button>
+          <p class="hint">Experimental. Some effects—including the tested Stars effects—may ignore length.</p>
+        </div>
       </section>
 
       <section id="diagnosticsPanel" class="control-panel panel hidden">
@@ -142,7 +157,7 @@
       </section>
 
       <footer>
-        <span>Prototype · verified against SP621E 2074EE</span>
+        <span>Prototype v3 · verified against SP621E 2074EE</span>
         <span>No cloud control. No account.</span>
       </footer>
     </main>

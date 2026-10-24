@@ -7,11 +7,13 @@ const CHIP_ORDERS = ["RGB", "RBG", "GRB", "GBR", "BRG", "BGR"];
 
 const elements = Object.fromEntries(
   [
-    "connectionDot", "connectionText", "connectButton", "broadScanButton", "disconnectButton", "powerButton",
+    "connectionDot", "connectionText", "connectButton", "disconnectButton", "powerButton",
     "powerLabel", "refreshButton", "heroTitle", "heroCopy", "statusEffect",
     "statusBrightness", "statusSpeed", "statusOrder", "colorInput", "colorHex",
-    "colorValue", "colorValueOutput", "colorPreview", "effectSelect", "speedInput",
-    "speedOutput", "compatibilityMessage", "packetLog", "clearLogButton", "toast"
+    "colorValue", "colorValueOutput", "colorPreview", "effectNumber", "effectRange",
+    "effectOutput", "previousEffectButton", "nextEffectButton", "applyEffectButton",
+    "speedInput", "speedOutput", "effectLength", "lengthOutput", "applyLengthButton",
+    "compatibilityMessage", "packetLog", "clearLogButton", "toast"
   ].map((id) => [id, document.getElementById(id)])
 );
 
@@ -57,8 +59,10 @@ function command(opcode, payload = []) {
 
 function controlsEnabled(value) {
   [elements.powerButton, elements.refreshButton, elements.colorInput, elements.colorValue,
-    elements.effectSelect, elements.speedInput].forEach((element) => { element.disabled = !value; });
-  document.querySelectorAll(".swatch").forEach((element) => { element.disabled = !value; });
+    elements.effectNumber, elements.effectRange, elements.previousEffectButton,
+    elements.nextEffectButton, elements.applyEffectButton, elements.speedInput,
+    elements.effectLength, elements.applyLengthButton].forEach((element) => { element.disabled = !value; });
+  document.querySelectorAll(".swatch, .effect-preset").forEach((element) => { element.disabled = !value; });
   elements.disconnectButton.disabled = !value;
 }
 
@@ -67,7 +71,6 @@ function setConnectionState(state, detail = "") {
   elements.connectionDot.className = `status-dot ${state}`;
   elements.connectionText.textContent = state === "connected" ? "Connected" : state === "connecting" ? "Connecting…" : "Not connected";
   elements.connectButton.disabled = state === "connecting" || connected;
-  elements.broadScanButton.disabled = state === "connecting" || connected;
   controlsEnabled(connected);
   elements.heroTitle.textContent = connected ? "Lamp is within reach." : state === "connecting" ? "Opening Bluetooth…" : "Ready when you are.";
   elements.heroCopy.textContent = detail || (connected
@@ -75,16 +78,16 @@ function setConnectionState(state, detail = "") {
     : "Choose your SP621E from Android Chrome’s Bluetooth picker. BanlanX must be closed.");
 }
 
-async function connectDevice(acceptAll = false) {
+async function connectDevice() {
   if (!navigator.bluetooth) {
     toast("Web Bluetooth is not available in this browser.");
     return;
   }
   setConnectionState("connecting");
   try {
-    const options = acceptAll
-      ? { acceptAllDevices: true, optionalServices: [SERVICE_UUID] }
-      : { filters: [{ services: [SERVICE_UUID] }] };
+    // This SP621E is not found reliably by a service UUID filter. Ask Chrome
+    // for the broad chooser, while declaring FFE0 for access after selection.
+    const options = { acceptAllDevices: true, optionalServices: [SERVICE_UUID] };
     bluetoothDevice = await navigator.bluetooth.requestDevice(options);
     bluetoothDevice.addEventListener("gattserverdisconnected", onDisconnected);
     const server = await bluetoothDevice.gatt.connect();
@@ -173,14 +176,16 @@ function parseStatus(data) {
   elements.powerLabel.textContent = knownPower ? "On" : "Off";
   elements.powerButton.classList.toggle("on", knownPower);
   elements.powerButton.setAttribute("aria-pressed", String(knownPower));
-  elements.statusEffect.textContent = EFFECTS[effect] ? `${EFFECTS[effect]} · ${effect}` : String(effect);
+  elements.statusEffect.textContent = effectLabel(effect);
   elements.statusBrightness.textContent = String(data[4]);
   elements.statusSpeed.textContent = String(data[5]);
   elements.statusOrder.textContent = CHIP_ORDERS[data[3]] || String(data[3]);
-  if (effect === 74 || effect === 75) {
-    elements.effectSelect.value = String(effect);
-    elements.speedInput.value = String(data[5]);
-    elements.speedOutput.value = String(data[5]);
+  if (effect >= 1 && effect <= 142) updateEffectFields(effect);
+  elements.speedInput.value = String(Math.max(1, Math.min(10, data[5])));
+  elements.speedOutput.value = elements.speedInput.value;
+  if (data[6] >= 1 && data[6] <= 150) {
+    elements.effectLength.value = String(data[6]);
+    elements.lengthOutput.value = String(data[6]);
   }
   elements.colorInput.value = rgbToHex(data[7], data[8], data[9]);
   elements.colorHex.value = elements.colorInput.value.toUpperCase();
@@ -191,6 +196,30 @@ function parseStatus(data) {
 
 function rgbToHex(red, green, blue) {
   return `#${[red, green, blue].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function boundedInteger(value, minimum, maximum, fallback) {
+  const number = Number.parseInt(value, 10);
+  return Number.isFinite(number) ? Math.max(minimum, Math.min(maximum, number)) : fallback;
+}
+
+function effectLabel(effect) {
+  return EFFECTS[effect] ? `${EFFECTS[effect]} · ${effect}` : `Effect ${effect}`;
+}
+
+function updateEffectFields(effect) {
+  const value = boundedInteger(effect, 1, 142, 75);
+  elements.effectNumber.value = String(value);
+  elements.effectRange.value = String(value);
+  elements.effectOutput.value = String(value);
+  return value;
+}
+
+async function applyEffect(effect = elements.effectNumber.value) {
+  const value = updateEffectFields(effect);
+  if (!await write(command(0x63, [value]), effectLabel(value))) return;
+  currentEffect = value;
+  elements.statusEffect.textContent = effectLabel(value);
 }
 
 function colorBytes() {
@@ -229,8 +258,7 @@ function scheduleSpeedWrite() {
   speedWriteTimer = window.setTimeout(() => write(command(0x67, [Number(elements.speedInput.value)]), "effect speed"), 90);
 }
 
-elements.connectButton.addEventListener("click", () => connectDevice(false));
-elements.broadScanButton.addEventListener("click", () => connectDevice(true));
+elements.connectButton.addEventListener("click", connectDevice);
 elements.disconnectButton.addEventListener("click", disconnectDevice);
 elements.refreshButton.addEventListener("click", () => write(command(0x70), "query state"));
 elements.powerButton.addEventListener("click", async () => {
@@ -239,14 +267,31 @@ elements.powerButton.addEventListener("click", async () => {
   knownPower = next;
   elements.powerLabel.textContent = next ? "On" : "Off";
   elements.powerButton.classList.toggle("on", next);
+  elements.powerButton.setAttribute("aria-pressed", String(next));
 });
 elements.colorInput.addEventListener("input", scheduleColorWrite);
 elements.colorValue.addEventListener("input", scheduleColorWrite);
-elements.effectSelect.addEventListener("change", async () => {
-  const effect = Number(elements.effectSelect.value);
-  if (await write(command(0x63, [effect]), elements.effectSelect.selectedOptions[0].textContent)) currentEffect = effect;
+elements.effectRange.addEventListener("input", () => updateEffectFields(elements.effectRange.value));
+elements.effectNumber.addEventListener("input", () => {
+  const value = boundedInteger(elements.effectNumber.value, 1, 142, 75);
+  elements.effectRange.value = String(value);
+  elements.effectOutput.value = String(value);
+});
+elements.effectNumber.addEventListener("change", () => updateEffectFields(elements.effectNumber.value));
+elements.previousEffectButton.addEventListener("click", () => updateEffectFields(Number(elements.effectNumber.value) - 1));
+elements.nextEffectButton.addEventListener("click", () => updateEffectFields(Number(elements.effectNumber.value) + 1));
+elements.applyEffectButton.addEventListener("click", () => applyEffect());
+document.querySelectorAll(".effect-preset").forEach((preset) => {
+  preset.addEventListener("click", () => applyEffect(preset.dataset.effect));
 });
 elements.speedInput.addEventListener("input", scheduleSpeedWrite);
+elements.effectLength.addEventListener("input", () => { elements.lengthOutput.value = elements.effectLength.value; });
+elements.applyLengthButton.addEventListener("click", () => {
+  const length = boundedInteger(elements.effectLength.value, 1, 150, 1);
+  elements.effectLength.value = String(length);
+  elements.lengthOutput.value = String(length);
+  write(command(0x68, [length]), `effect length ${length}`);
+});
 elements.clearLogButton.addEventListener("click", () => { elements.packetLog.replaceChildren(); });
 
 document.querySelectorAll(".swatch").forEach((swatch) => {
@@ -272,5 +317,6 @@ elements.compatibilityMessage.textContent = navigator.bluetooth
   : "Web Bluetooth was not detected. Open this site in Chrome on Android or a supported desktop browser.";
 setConnectionState("disconnected");
 updateColorPreview();
+updateEffectFields(75);
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(logError);

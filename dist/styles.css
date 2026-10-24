@@ -96,7 +96,7 @@ h2 { font-size: 1.35rem; letter-spacing: -0.025em; }
 }
 .button.primary { background: var(--amber); color: #241707; }
 .button.ghost { background: rgba(255,255,255,.06); color: var(--text); }
-.button:disabled, .power-button:disabled, input:disabled, select:disabled { opacity: .42; cursor: not-allowed; }
+.button:disabled, .power-button:disabled, .step-button:disabled, .effect-preset:disabled, input:disabled, select:disabled { opacity: .42; cursor: not-allowed; }
 
 .quick-grid {
   display: grid;
@@ -148,6 +148,15 @@ dd { margin: 2px 0 0; font-weight: 700; }
 input[type="color"] { width: 58px; height: 42px; padding: 3px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); }
 output { color: var(--text); font-variant-numeric: tabular-nums; }
 select { width: 100%; padding: 13px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-2); color: var(--text); }
+
+.effect-selector { display: grid; grid-template-columns: 48px 1fr 48px; gap: 9px; margin-top: 12px; }
+.effect-selector input[type="number"] { width: 100%; min-width: 0; padding: 12px; text-align: center; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-2); color: var(--text); font-weight: 750; }
+.step-button { border: 1px solid var(--border); border-radius: 13px; background: rgba(255,255,255,.06); color: var(--text); font-size: 1.25rem; cursor: pointer; }
+.full-width { width: 100%; margin-top: 10px; }
+.effect-presets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 18px; }
+.effect-preset { display: flex; justify-content: space-between; gap: 8px; padding: 12px; border: 1px solid rgba(121,215,154,.22); border-radius: 13px; background: rgba(121,215,154,.07); color: var(--text); cursor: pointer; }
+.effect-preset strong { color: var(--green); }
+.experimental-control { margin-top: 22px; padding: 0 14px 14px; border: 1px dashed rgba(246,173,60,.28); border-radius: 16px; background: rgba(246,173,60,.035); }
 
 .preset-row { display: flex; justify-content: space-between; gap: 10px; margin-top: 22px; overflow-x: auto; padding-bottom: 4px; }
 .swatch { flex: 0 0 42px; width: 42px; height: 42px; border-radius: 50%; border: 3px solid rgba(255,255,255,.16); }
