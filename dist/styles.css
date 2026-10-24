@@ -169,8 +169,8 @@ footer { color: #766f64; font-size: .72rem; padding: 22px 4px 0; }
 
 @media (max-width: 620px) {
   .hero { align-items: stretch; flex-direction: column; }
-  .hero-actions { flex-direction: row; }
-  .hero-actions .button { flex: 1; }
+  .hero-actions { flex-flow: row wrap; }
+  .hero-actions .button { flex: 1 1 42%; }
   .quick-grid { grid-template-columns: 1fr; }
   .power-card { min-height: 130px; }
   footer { align-items: flex-start; flex-direction: column; gap: 4px; }

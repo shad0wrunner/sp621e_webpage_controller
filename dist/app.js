@@ -107,6 +107,8 @@ function disconnectDevice() {
 
 function onDisconnected() {
   characteristic = null;
+  currentEffect = null;
+  knownPower = null;
   setConnectionState("disconnected", "Disconnected. Reconnect when the lamp is free.");
 }
 
@@ -130,10 +132,16 @@ function write(bytes, label = "") {
 }
 
 function onNotification(event) {
-  const value = new Uint8Array(event.target.value.buffer, event.target.value.byteOffset, event.target.value.byteLength);
-  logPacket("RX", value, "notification");
-  const payload = assembleNotification(value);
-  if (payload) parseStatus(payload);
+  try {
+    const value = new Uint8Array(event.target.value.buffer, event.target.value.byteOffset, event.target.value.byteLength);
+    logPacket("RX", value, "notification");
+    const payload = assembleNotification(value);
+    if (payload) parseStatus(payload);
+  } catch (error) {
+    pendingMessage = null;
+    logError(error);
+    toast("Could not decode the controller status");
+  }
 }
 
 function assembleNotification(packet) {
