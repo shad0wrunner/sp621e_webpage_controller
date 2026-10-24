@@ -24,34 +24,45 @@ Good options are:
 Copy this directory to the Ubuntu server, then run:
 
 ```bash
+cp .env.example .env
 docker compose up -d --build
 docker compose ps
-curl -I http://127.0.0.1:8088/
+curl -I http://192.168.1.106:8088/
 ```
 
-The Compose file binds only to the server's loopback interface. Put an HTTPS
-reverse proxy in front of `http://127.0.0.1:8088`.
+The default remains the safer loopback binding `127.0.0.1:8088`. The supplied
+`.env.example` changes it to `192.168.1.106:8088`, matching a setup where an
+Nginx Proxy Manager container reaches other services through the server's LAN
+address. Change that IP if the server address changes. Keep port 80 and 443 for
+NPM itself; the controller should use an unused host port such as 8088.
 
-Example Caddy site using an ordinary trusted certificate:
+### Nginx Proxy Manager
 
-```caddyfile
-lamp.example.com {
-    reverse_proxy 127.0.0.1:8088
-}
-```
+Create a Proxy Host with:
 
-LAN-only Caddy example:
+- **Domain Names:** your controller hostname, for example `lamp.example.com`
+- **Scheme:** `http`
+- **Forward Hostname / IP:** `192.168.1.106`
+- **Forward Port:** `8088`
+- **Websockets Support:** not required
+- **SSL:** request/select a valid certificate and enable **Force SSL**
 
-```caddyfile
-lamp.home.arpa {
-    tls internal
-    reverse_proxy 127.0.0.1:8088
-}
-```
+NPM terminates HTTPS and forwards ordinary HTTP to the container. Web Bluetooth
+cares about the HTTPS origin visible to the phone; the internal NPM-to-app hop
+may remain HTTP.
 
-For the LAN-only form, export Caddy's local root CA and install it as a trusted
-CA on every phone or computer that will use the controller. Merely clicking
-through an invalid-certificate warning is not sufficient for Web Bluetooth.
+If NPM reports a gateway error, first run `curl -I
+http://192.168.1.106:8088/` on the server. Then test the same address from the
+NPM container or verify that the host firewall accepts the Docker bridge. Since
+your other Proxy Hosts already use this LAN-IP pattern, the same routing should
+work here.
+
+### Shared Docker network alternative
+
+If preferred, attach this service and NPM to the same user-defined Docker
+network and use `sp621e-controller` with port `80` as the Forward Hostname and
+Port. In that arrangement, remove the `ports` section entirely. The LAN-IP
+configuration above deliberately matches the existing setup described here.
 
 ## Plain static hosting
 

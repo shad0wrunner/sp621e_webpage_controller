@@ -4,5 +4,5 @@ services:
     container_name: sp621e-controller
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8088:80"
+      - "${SP621E_BIND_IP:-127.0.0.1}:${SP621E_PORT:-8088}:80"
 
