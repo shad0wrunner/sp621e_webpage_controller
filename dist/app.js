@@ -4,6 +4,7 @@ const SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb";
 const CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb";
 const EFFECTS = { 74: "Red Stars", 75: "Green Stars", 190: "Solid Color" };
 const CHIP_ORDERS = ["RGB", "RBG", "GRB", "GBR", "BRG", "BGR"];
+const SOLID_MODE_SETTLE_MS = 180;
 
 const elements = Object.fromEntries(
   [
@@ -26,6 +27,7 @@ let writeQueue = Promise.resolve();
 let pendingMessage = null;
 let colorWriteTimer = null;
 let speedWriteTimer = null;
+let solidModePromise = null;
 
 function hex(bytes) {
   return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join(" ").toUpperCase();
@@ -55,6 +57,10 @@ function toast(message) {
 
 function command(opcode, payload = []) {
   return Uint8Array.of(0xA0, opcode, payload.length, ...payload);
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 function controlsEnabled(value) {
@@ -112,6 +118,7 @@ function onDisconnected() {
   characteristic = null;
   currentEffect = null;
   knownPower = null;
+  solidModePromise = null;
   setConnectionState("disconnected", "Disconnected. Reconnect when the lamp is free.");
 }
 
@@ -217,6 +224,8 @@ function updateEffectFields(effect) {
 
 async function applyEffect(effect = elements.effectNumber.value) {
   const value = updateEffectFields(effect);
+  window.clearTimeout(colorWriteTimer);
+  if (solidModePromise) await solidModePromise;
   if (!await write(command(0x63, [value]), effectLabel(value))) return;
   currentEffect = value;
   elements.statusEffect.textContent = effectLabel(value);
@@ -238,18 +247,32 @@ function updateColorPreview() {
   elements.colorPreview.style.background = rgbToHex(...renderedColor());
 }
 
+function activateSolidMode() {
+  if (currentEffect === 0xBE) return Promise.resolve(true);
+  if (!solidModePromise) {
+    solidModePromise = (async () => {
+      if (!await write(command(0x63, [0xBE]), "solid color mode")) return false;
+      // BanlanX changes mode on tab entry, then sends RGB later. Give this
+      // controller one command-processing interval before the first RGB write.
+      await wait(SOLID_MODE_SETTLE_MS);
+      currentEffect = 0xBE;
+      return true;
+    })().finally(() => { solidModePromise = null; });
+  }
+  return solidModePromise;
+}
+
+async function writeCurrentColor() {
+  const rgb = colorBytes();
+  const level = Number(elements.colorValue.value);
+  if (!await activateSolidMode()) return;
+  await write(command(0x69, [...rgb, level]), `color ${rgbToHex(...renderedColor()).toUpperCase()}`);
+}
+
 function scheduleColorWrite() {
   updateColorPreview();
   window.clearTimeout(colorWriteTimer);
-  colorWriteTimer = window.setTimeout(async () => {
-    const rgb = colorBytes();
-    const level = Number(elements.colorValue.value);
-    if (currentEffect !== 0xBE) {
-      if (!await write(command(0x63, [0xBE]), "solid color mode")) return;
-      currentEffect = 0xBE;
-    }
-    await write(command(0x69, [...rgb, level]), `color ${rgbToHex(...renderedColor()).toUpperCase()}`);
-  }, 90);
+  colorWriteTimer = window.setTimeout(writeCurrentColor, 90);
 }
 
 function scheduleSpeedWrite() {
@@ -309,6 +332,10 @@ document.querySelectorAll(".mode-tab").forEach((tab) => {
       item.setAttribute("aria-selected", String(active));
     });
     document.querySelectorAll(".control-panel").forEach((panel) => panel.classList.toggle("hidden", panel.id !== tab.dataset.panel));
+    if (tab.dataset.panel === "colorPanel" && connected) {
+      window.clearTimeout(colorWriteTimer);
+      writeCurrentColor();
+    }
   });
 });
 

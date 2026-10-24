@@ -1,4 +1,4 @@
-const CACHE = "roomsun-sp621e-v3";
+const CACHE = "roomsun-sp621e-v4";
 const ASSETS = ["./", "index.html", "styles.css", "app.js", "manifest.webmanifest", "icon.svg"];
 
 self.addEventListener("install", (event) => {

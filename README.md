@@ -9,6 +9,7 @@ controller; the Site has no backend or telemetry.
 - connect/disconnect and status query;
 - power on/off;
 - static RGB plus the controller's separate value byte;
+- explicit dynamic-to-solid transition with a controller settle interval;
 - selectable effect IDs 1 through 142, with verified shortcuts for Red Stars
   (74) and Green Stars (75);
 - effect speed;
