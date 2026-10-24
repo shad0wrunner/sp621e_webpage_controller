@@ -1,0 +1,17 @@
+{
+  "name": "RoomSun SP621E Controller",
+  "short_name": "RoomSun",
+  "description": "Direct Bluetooth control for a BanlanX SP621E LED controller.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0d0c0a",
+  "theme_color": "#16130f",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

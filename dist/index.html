@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#16130f" />
+    <meta
+      name="description"
+      content="A private Web Bluetooth controller for the BanlanX SP621E LED controller."
+    />
+    <link rel="canonical" href="https://roomsun-sp621e-controller.awakeglobe8.chatgpt.site/" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>RoomSun Controller</title>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">BANLANX SP621E</p>
+          <h1>RoomSun</h1>
+        </div>
+        <div class="connection-cluster">
+          <span id="connectionDot" class="status-dot" aria-hidden="true"></span>
+          <span id="connectionText">Not connected</span>
+        </div>
+      </header>
+
+      <section class="hero panel">
+        <div>
+          <p class="section-label">Direct Bluetooth control</p>
+          <h2 id="heroTitle">Ready when you are.</h2>
+          <p id="heroCopy" class="muted">
+            Choose your SP621E from Android Chrome’s Bluetooth picker. BanlanX must be closed.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button id="connectButton" class="button primary">Connect lamp</button>
+          <button id="broadScanButton" class="button ghost">Broad scan</button>
+          <button id="disconnectButton" class="button ghost" disabled>Disconnect</button>
+        </div>
+      </section>
+
+      <section class="quick-grid" aria-label="Lamp controls">
+        <article class="panel power-card">
+          <div>
+            <p class="section-label">Power</p>
+            <h2 id="powerLabel">Unknown</h2>
+          </div>
+          <button id="powerButton" class="power-button" disabled aria-pressed="false">
+            <span aria-hidden="true">⌁</span>
+            <span>Toggle</span>
+          </button>
+        </article>
+
+        <article class="panel status-card">
+          <p class="section-label">Controller state</p>
+          <dl class="status-grid">
+            <div><dt>Effect</dt><dd id="statusEffect">—</dd></div>
+            <div><dt>Brightness</dt><dd id="statusBrightness">—</dd></div>
+            <div><dt>Speed</dt><dd id="statusSpeed">—</dd></div>
+            <div><dt>Color order</dt><dd id="statusOrder">—</dd></div>
+          </dl>
+          <button id="refreshButton" class="text-button" disabled>Refresh state</button>
+        </article>
+      </section>
+
+      <nav class="mode-tabs panel" aria-label="Control mode">
+        <button class="mode-tab active" data-panel="colorPanel" aria-selected="true">Color</button>
+        <button class="mode-tab" data-panel="effectsPanel" aria-selected="false">Effects</button>
+        <button class="mode-tab" data-panel="diagnosticsPanel" aria-selected="false">Diagnostics</button>
+      </nav>
+
+      <section id="colorPanel" class="control-panel panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-label">Static color</p>
+            <h2>Pick a tone</h2>
+          </div>
+          <div id="colorPreview" class="color-preview" aria-label="Rendered color preview"></div>
+        </div>
+
+        <label class="field color-field">
+          <span>Base color</span>
+          <input id="colorInput" type="color" value="#ff6600" disabled />
+          <output id="colorHex" for="colorInput">#FF6600</output>
+        </label>
+
+        <div class="preset-row" aria-label="Color presets">
+          <button class="swatch red" data-color="#ff0000" aria-label="Red"></button>
+          <button class="swatch green" data-color="#00ff00" aria-label="Green"></button>
+          <button class="swatch blue" data-color="#0000ff" aria-label="Blue"></button>
+          <button class="swatch yellow" data-color="#ffff00" aria-label="Yellow"></button>
+          <button class="swatch magenta" data-color="#ff00ff" aria-label="Magenta"></button>
+          <button class="swatch cyan" data-color="#00ffff" aria-label="Cyan"></button>
+          <button class="swatch white" data-color="#ffffff" aria-label="White"></button>
+        </div>
+
+        <label class="field range-field">
+          <span>Value <output id="colorValueOutput" for="colorValue">129</output></span>
+          <input id="colorValue" type="range" min="0" max="255" value="129" disabled />
+        </label>
+        <p class="hint">The preview is the base color scaled by the value byte used by the controller.</p>
+      </section>
+
+      <section id="effectsPanel" class="control-panel panel hidden">
+        <div class="panel-heading">
+          <div>
+            <p class="section-label">Verified dynamic effects</p>
+            <h2>Stars</h2>
+          </div>
+          <span class="verified-badge">Live tested</span>
+        </div>
+
+        <label class="field">
+          <span>Effect</span>
+          <select id="effectSelect" disabled>
+            <option value="74">Red Stars · 74</option>
+            <option value="75" selected>Green Stars · 75</option>
+          </select>
+        </label>
+
+        <label class="field range-field">
+          <span>Speed <output id="speedOutput" for="speedInput">4</output></span>
+          <input id="speedInput" type="range" min="1" max="10" value="4" disabled />
+        </label>
+        <p class="hint">Effect length is intentionally omitted: BanlanX disabled it for the tested Stars effect.</p>
+      </section>
+
+      <section id="diagnosticsPanel" class="control-panel panel hidden">
+        <div class="panel-heading">
+          <div>
+            <p class="section-label">Local diagnostics</p>
+            <h2>Packet log</h2>
+          </div>
+          <button id="clearLogButton" class="text-button">Clear</button>
+        </div>
+        <div id="compatibilityMessage" class="compatibility"></div>
+        <ol id="packetLog" class="packet-log" aria-live="polite"></ol>
+        <p class="hint">Packets stay in this browser tab and are not uploaded.</p>
+      </section>
+
+      <footer>
+        <span>Prototype · verified against SP621E 2074EE</span>
+        <span>No cloud control. No account.</span>
+      </footer>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js" defer></script>
+  </body>
+</html>
