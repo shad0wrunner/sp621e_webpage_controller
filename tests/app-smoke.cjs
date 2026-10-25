@@ -30,17 +30,30 @@ const getElement = (id) => {
 };
 const writes = [];
 const delays = [];
+const characteristicListeners = new Map();
 const characteristic = {
   properties: { notify: false },
-  addEventListener() {},
+  addEventListener(type, listener) { characteristicListeners.set(type, listener); },
+  removeEventListener(type, listener) {
+    if (characteristicListeners.get(type) === listener) characteristicListeners.delete(type);
+  },
   async writeValueWithoutResponse(value) { writes.push(Buffer.from(value)); },
 };
 const service = { async getCharacteristic() { return characteristic; } };
 const server = { async getPrimaryService() { return service; } };
+const deviceListeners = new Map();
+let disconnectCalls = 0;
 const device = {
   name: "SP621E",
-  addEventListener() {},
-  gatt: { connected: true, async connect() { return server; }, disconnect() {} },
+  addEventListener(type, listener) { deviceListeners.set(type, listener); },
+  removeEventListener(type, listener) {
+    if (deviceListeners.get(type) === listener) deviceListeners.delete(type);
+  },
+  gatt: {
+    connected: true,
+    async connect() { this.connected = true; return server; },
+    disconnect() { disconnectCalls += 1; this.connected = false; },
+  },
 };
 
 let timerId = 0;
@@ -90,7 +103,15 @@ function hex(value) {
   await context.writeCurrentColor();
   assert.deepEqual(writes.splice(0).map(hex), ["A063014B", "A06301BE", "A06904FF000080"]);
 
-  process.stdout.write("app BLE transition smoke test: OK\n");
+  context.disconnectDevice();
+  assert.equal(disconnectCalls, 1, "disconnect must close the browser GATT connection");
+  assert.equal(device.gatt.connected, false, "the GATT connection must be released");
+  assert.equal(getElement("connectionText").textContent, "Not connected");
+  assert.equal(getElement("disconnectButton").disabled, true);
+  assert.equal(characteristicListeners.has("characteristicvaluechanged"), false, "notification listener must be removed");
+  assert.equal(deviceListeners.has("gattserverdisconnected"), false, "disconnect listener must be removed");
+
+  process.stdout.write("app BLE transition and disconnect smoke test: OK\n");
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

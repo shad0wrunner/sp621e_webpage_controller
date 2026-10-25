@@ -28,6 +28,7 @@ let pendingMessage = null;
 let colorWriteTimer = null;
 let speedWriteTimer = null;
 let solidModePromise = null;
+let connectionEpoch = 0;
 
 function hex(bytes) {
   return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join(" ").toUpperCase();
@@ -75,10 +76,22 @@ function controlsEnabled(value) {
 function setConnectionState(state, detail = "") {
   connected = state === "connected";
   elements.connectionDot.className = `status-dot ${state}`;
-  elements.connectionText.textContent = state === "connected" ? "Connected" : state === "connecting" ? "Connecting…" : "Not connected";
-  elements.connectButton.disabled = state === "connecting" || connected;
+  elements.connectionText.textContent = state === "connected"
+    ? "Connected"
+    : state === "connecting"
+      ? "Connecting…"
+      : state === "disconnecting"
+        ? "Disconnecting…"
+        : "Not connected";
+  elements.connectButton.disabled = state === "connecting" || state === "disconnecting" || connected;
   controlsEnabled(connected);
-  elements.heroTitle.textContent = connected ? "Lamp is within reach." : state === "connecting" ? "Opening Bluetooth…" : "Ready when you are.";
+  elements.heroTitle.textContent = connected
+    ? "Lamp is within reach."
+    : state === "connecting"
+      ? "Opening Bluetooth…"
+      : state === "disconnecting"
+        ? "Releasing the lamp…"
+        : "Ready when you are.";
   elements.heroCopy.textContent = detail || (connected
     ? "Commands go directly from this browser to the SP621E."
     : "Choose your SP621E from Android Chrome’s Bluetooth picker. BanlanX must be closed.");
@@ -89,6 +102,7 @@ async function connectDevice() {
     toast("Web Bluetooth is not available in this browser.");
     return;
   }
+  connectionEpoch += 1;
   setConnectionState("connecting");
   try {
     // This SP621E is not found reliably by a service UUID filter. Ask Chrome
@@ -105,26 +119,65 @@ async function connectDevice() {
     await write(command(0x70), "query state");
   } catch (error) {
     logError(error);
-    setConnectionState("disconnected", error.name === "NotFoundError" ? "No device selected." : error.message);
+    const device = bluetoothDevice;
+    if (device?.gatt?.connected) device.gatt.disconnect();
+    finishDisconnect(device, error.name === "NotFoundError" ? "No device selected." : error.message);
   }
 }
 
-function disconnectDevice() {
-  if (bluetoothDevice?.gatt?.connected) bluetoothDevice.gatt.disconnect();
-  onDisconnected();
+function cancelPendingControls() {
+  window.clearTimeout(colorWriteTimer);
+  window.clearTimeout(speedWriteTimer);
+  colorWriteTimer = null;
+  speedWriteTimer = null;
+  solidModePromise = null;
+  pendingMessage = null;
 }
 
-function onDisconnected() {
+function finishDisconnect(device, detail = "Disconnected. The lamp is free for another Bluetooth device.") {
+  if (device && bluetoothDevice && device !== bluetoothDevice) return;
+  device?.removeEventListener("gattserverdisconnected", onDisconnected);
+  characteristic?.removeEventListener("characteristicvaluechanged", onNotification);
+  if (!device || bluetoothDevice === device) bluetoothDevice = null;
   characteristic = null;
   currentEffect = null;
   knownPower = null;
-  solidModePromise = null;
-  setConnectionState("disconnected", "Disconnected. Reconnect when the lamp is free.");
+  cancelPendingControls();
+  setConnectionState("disconnected", detail);
+}
+
+function disconnectDevice() {
+  const device = bluetoothDevice;
+  connectionEpoch += 1;
+  cancelPendingControls();
+
+  if (!device) {
+    finishDisconnect(null);
+    return;
+  }
+
+  setConnectionState("disconnecting", "Closing this browser's Bluetooth connection…");
+  if (device.gatt?.connected) device.gatt.disconnect();
+
+  const released = !device.gatt?.connected;
+  finishDisconnect(device, released
+    ? "Disconnected. The lamp is free for another Bluetooth device."
+    : "Disconnect requested. The lamp will be free as soon as Bluetooth finishes closing the link.");
+  toast(released ? "Bluetooth connection released" : "Bluetooth disconnect requested");
+}
+
+function onDisconnected(event) {
+  const device = event?.target || bluetoothDevice;
+  connectionEpoch += 1;
+  finishDisconnect(device);
 }
 
 function write(bytes, label = "") {
+  const epoch = connectionEpoch;
   const operation = writeQueue.then(async () => {
-    if (!characteristic || !bluetoothDevice?.gatt?.connected) throw new Error("Lamp is not connected");
+    if (epoch !== connectionEpoch || !characteristic || !bluetoothDevice?.gatt?.connected) {
+      throw new Error("Lamp is not connected");
+    }
     logPacket("TX", bytes, label);
     if (typeof characteristic.writeValueWithoutResponse === "function") {
       await characteristic.writeValueWithoutResponse(bytes);

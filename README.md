@@ -6,7 +6,8 @@ controller; the Site has no backend or telemetry.
 
 ## Supported
 
-- connect/disconnect and status query;
+- connect/disconnect and status query, with an explicit GATT release so another
+  phone or computer can connect to the lamp;
 - power on/off;
 - static RGB plus the controller's separate value byte;
 - explicit dynamic-to-solid transition with a controller settle interval;
